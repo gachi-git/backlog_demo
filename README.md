@@ -1,59 +1,197 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Backlog Demo
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Backlog APIを使用したデータ同期システムの技術検証プロジェクト。
 
-## About Laravel
+## 概要
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+このプロジェクトは、Backlog APIからタスクデータを取得し、ローカルデータベースに同期する機能の技術検証を目的としている。API制限への対応、差分更新、データベース設計を実装・検証しました。
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## 技術スタック
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- **Framework:** Laravel 12
+- **Database:** MySQL (Docker/Sail)
+- **API:** Backlog API v2
+- **言語:** PHP 8.2
 
-## Learning Laravel
+## 主要機能
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+### 1. Backlog API連携
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+- API認証管理（API Key）
+- レートリミット制御（429エラー時の自動リトライ）
+- ページネーション処理（100件ずつ自動取得）
+- エラーハンドリング
 
-## Laravel Sponsors
+### 2. データ同期
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+- Backlogから課題データを取得
+- 差分更新対応（`updatedSince`パラメータ）
+- MySQLへの保存（JSON形式）
 
-### Premium Partners
+### 3. ダミーデータ生成
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+- Fakerを使用したダミーデータ生成
+- Backlog APIでの課題作成
 
-## Contributing
+## セットアップ
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+### 1. 環境変数の設定
 
-## Code of Conduct
+`.env` ファイルに以下を追加：
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+```bash
+BACKLOG_SPACE_URL=https://your-space.backlog.jp
+BACKLOG_API_KEY=your_api_key_here
+```
 
-## Security Vulnerabilities
+### 2. データベースマイグレーション
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+```bash
+./vendor/bin/sail artisan migrate
+```
 
-## License
+### 3. Backlog APIキーの取得
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+1. Backlogにログイン
+2. 右上のアイコン → 個人設定
+3. 左メニューの「API」
+4. 「APIキーの発行」ボタンをクリック
+5. 表示されたAPIキーを`.env`に設定
+
+## 使い方
+
+### データ同期
+
+Backlogから課題を取得してDBに保存：
+
+```bash
+# 差分同期（前回同期以降の更新分のみ）
+./vendor/bin/sail artisan backlog:sync
+
+# 全件取得
+./vendor/bin/sail artisan backlog:sync --full
+
+# 指定日時以降を取得
+./vendor/bin/sail artisan backlog:sync --since=2025-12-01
+```
+
+### ダミーデータ投入
+
+テスト用のダミー課題をBacklogに作成：
+
+```bash
+# 10件作成（デフォルト）
+./vendor/bin/sail artisan backlog:seed-dummy
+
+# 件数指定
+./vendor/bin/sail artisan backlog:seed-dummy --count=5
+
+# プロジェクト指定
+./vendor/bin/sail artisan backlog:seed-dummy --project=12345
+```
+
+### データ確認
+
+```bash
+./vendor/bin/sail artisan tinker
+
+>>> \App\Models\RawBacklogIssue::count()
+>>> \App\Models\RawBacklogIssue::first()
+```
+
+## データベース構造
+
+### sync_logs テーブル
+
+同期状態を管理
+
+| カラム | 型 | 説明 |
+|--------|-----|------|
+| resource_type | string | リソース種別 |
+| last_synced_at | timestamp | 最終同期日時 |
+| status | string | 実行状態 |
+| total_fetched | integer | 取得件数 |
+
+### raw_backlog_issues テーブル
+
+Backlog課題の生データを保存
+
+| カラム | 型 | 説明 |
+|--------|-----|------|
+| backlog_id | bigint | BacklogのID（Unique） |
+| issue_key | string | 課題キー（例: PROJ-123） |
+| data | json | APIレスポンスの全データ |
+| synced_at | timestamp | 同期日時 |
+| updated_at_backlog | timestamp | Backlog最終更新日時 |
+
+## 実装クラス
+
+### BacklogApiService
+
+`app/Services/BacklogApiService.php`
+
+Backlog APIとの通信を担当
+
+**主要メソッド:**
+- `getIssues(?string $updatedSince)` - 課題一覧取得
+- `createIssue(array $data)` - 課題作成
+- `getProjects()` - プロジェクト一覧
+- `getIssueTypes(int $projectId)` - 課題タイプ一覧
+- `getPriorities()` - 優先度一覧
+
+### Models
+
+- `SyncLog` - 同期ログ管理
+- `RawBacklogIssue` - Backlog課題データ
+
+## 技術検証結果
+
+### ✅ 検証完了項目
+
+- API認証・接続
+- レートリミット制御（429対応）
+- ページネーション（100件ずつ）
+- 差分更新の仕組み
+- エラーハンドリング（401, 404）
+- データ保存（MySQL、JSON形式）
+- ダミーデータ生成
+
+### 📝 未検証項目
+
+- 2回目以降の差分同期の実動作
+- 大量データ（100件以上）の取得
+- コメント・添付ファイルの取得
+- Webhook連携
+
+## トラブルシューティング
+
+### 401 Unauthorized エラー
+
+APIキーが間違っている、または送信方法が間違っています。
+
+**解決方法:**
+1. Backlogで正しいAPIキーを取得
+2. `.env`の`BACKLOG_API_KEY`を確認
+3. APIキーはURLクエリパラメータとして送信される
+
+### 404 Not Found エラー
+
+`BACKLOG_SPACE_URL`が間違っています。
+
+**解決方法:**
+```bash
+# 正しい形式
+BACKLOG_SPACE_URL=https://your-space.backlog.jp
+```
+
+## セキュリティ
+
+- ✅ `.env`は`.gitignore`に含まれています
+- ✅ APIキーはハードコードされていません
+- ✅ 環境変数経由で管理
+
+## 参考資料
+
+- [Backlog API Documentation](https://developer.nulab.com/docs/backlog/)
+- [Backlog API Rate Limit](https://developer.nulab.com/docs/backlog/rate-limit/)
+- [Laravel Documentation](https://laravel.com/docs/12.x)
