@@ -97,16 +97,20 @@ class BacklogSeedDummyData extends Command
                 ['title' => 'セキュリティ：CSRF対策の強化', 'description' => 'CSRFトークンの検証を強化し、クロスサイトリクエストフォージェリ攻撃を防ぐ。', 'type' => 'バグ'],
             ];
 
+            // タスクをシャッフルして重複なく選択
+            $shuffledTasks = $tasks;
+            shuffle($shuffledTasks);
+            $selectedTasks = array_slice($shuffledTasks, 0, min($count, count($tasks)));
+
             $faker = Faker::create('ja_JP');
-            $progressBar = $this->output->createProgressBar($count);
+            $progressBar = $this->output->createProgressBar(count($selectedTasks));
             $progressBar->start();
 
             $successCount = 0;
             $failCount = 0;
 
-            for ($i = 0; $i < $count; $i++) {
+            foreach ($selectedTasks as $task) {
                 try {
-                    $task = $tasks[array_rand($tasks)];
 
                     // 適切な種別を検索
                     $issueTypeId = $this->findIssueTypeId($issueTypes, $task['type']);
