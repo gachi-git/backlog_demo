@@ -3,7 +3,7 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\PlanningController;
+use App\Http\Controllers\PlanningController;
 
 
 /*
@@ -15,7 +15,7 @@ use App\Http\Controllers\Api\PlanningController;
 | URLの先頭に自動的に /api が付く「
 */
 
-Route::middleware('auth:sanctum')->group(function () {
+//Route::middleware('auth:sanctum')->group(function () {
 
     // 1. カンバン移動（ステータス更新）
     // URL: /api/planning/tasks/{id}/status
@@ -25,7 +25,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // URL: /api/tasks/{id}/update-dates
     Route::post('/tasks/{id}/update-dates', [PlanningController::class, 'updateDates']);
 
-});
+//});
 
 // AI計画生成
 Route::post('/planning/generate', [PlanningController::class, 'generate']);
