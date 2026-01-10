@@ -1,13 +1,16 @@
 <?php
 
+
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\PlanningController;
+use App\Http\Controllers\Api\PlanningController;
+
 
 /*
 |--------------------------------------------------------------------------
 | API Routes
 |--------------------------------------------------------------------------
+<<<<<<< HEAD
 | データ（JSON）を返すルート
 | URLの先頭に自動的に /api が付く「
 */
@@ -23,3 +26,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/tasks/{id}/update-dates', [PlanningController::class, 'updateDates']);
 
 });
+
+// AI計画生成
+Route::post('/planning/generate', [PlanningController::class, 'generate']);
