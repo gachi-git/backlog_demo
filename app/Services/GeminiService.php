@@ -194,7 +194,7 @@ class GeminiService
      */
     private function buildAnalysisPrompt(array $summary): string
     {
-        $prompt = "あなたはタスク管理の専門家です。以下の過去7日間の作業データを分析し、2〜3個の具体的なアドバイスをJSON形式で提供してください。\n\n";
+        $prompt = "あなたはタスク管理の専門家です。以下の過去7日間の作業データを分析し、必ず3個の具体的なアドバイスをJSON形式で提供してください。\n\n";
 
         $prompt .= "【統計データ】\n";
         $prompt .= "期間: {$summary['period']['start']} ～ {$summary['period']['end']}\n";
@@ -225,7 +225,7 @@ class GeminiService
         $prompt .= "- 具体的な改善提案（タスク量の調整、時間配分など）\n";
         $prompt .= "- ポジティブで実践的なトーン、です・ます調\n";
         $prompt .= "- 各description は100文字以内\n";
-        $prompt .= "- 2〜3個のアドバイスを生成\n";
+        $prompt .= "- 必ず3個のアドバイスを生成してください\n";
 
         return $prompt;
     }
