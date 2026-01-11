@@ -70,6 +70,7 @@ class PlanningController extends Controller
                 'title' => $issue->data['summary'] ?? '',
                 'planned_minutes' => $plannedMinutes,
                 'priority' => $issue->data['priority']['name'] ?? '中',
+                'ai_comment' => $plan->ai_comment,
             ];
 
             // レート制限を回避するため、最後以外は5秒待機
