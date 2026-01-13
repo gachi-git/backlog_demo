@@ -1,18 +1,18 @@
 <?php
 
 
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\PlanningController;
 
+// コントローラーのインポート
+use App\Http\Controllers\Api\AnalysisController;
+use App\Http\Controllers\Api\PlanningController;
 
 /*
 |--------------------------------------------------------------------------
 | API Routes
 |--------------------------------------------------------------------------
-<<<<<<< HEAD
 | データ（JSON）を返すルート
-| URLの先頭に自動的に /api が付く「
+| URLの先頭に自動的に /api が付く
 */
 
 //Route::middleware('auth:sanctum')->group(function () {
@@ -27,9 +27,14 @@ use App\Http\Controllers\PlanningController;
 
 //});
 
-// AI計画生成
+// 3. AI計画生成
 Route::post('/planning/generate', [PlanningController::class, 'generate']);
 
+// 4. 今日のタスク（カンバン用）
+Route::get('/planning/daily', [PlanningController::class, 'getDailyTasks']);
 
-Route::get('/planning/daily', [PlanningController::class, 'getDailyTasks']);       // 今日のタスク（カンバン用）
-Route::get('/planning/unscheduled', [PlanningController::class, 'getUnscheduled']); // 未消化の課題（サイドバー用）
+// 5. 未消化の課題（サイドバー用）
+Route::get('/planning/unscheduled', [PlanningController::class, 'getUnscheduled']);
+
+// 6. AI分析
+Route::post('/analysis/advice', [AnalysisController::class, 'generateAdvice']);
