@@ -34,7 +34,7 @@ return new class extends Migration
 
             $table->timestamps();
 
-            // ▼ インデックス（File Aの高速化設定を採用）
+            // ▼ インデックス
             
             $table->index('target_date');
             $table->index(['user_id', 'target_date']);
