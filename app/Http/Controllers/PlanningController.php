@@ -6,6 +6,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
+// ▼▼▼ 追加: モデルを使用できるようにインポート ▼▼▼
+use App\Models\DailyPlan;
+use App\Models\RawBacklogIssue;
 
 class PlanningController extends Controller
 {
@@ -249,12 +252,10 @@ class PlanningController extends Controller
      */
     public function updateStatus(Request $request, $id)
     {
-        // フロントから送られてくる status を検証
         $validated = $request->validate([
             'status' => 'required|string|in:planned,in_progress,completed,skipped'
         ]);
 
-        // DBのカラム名は lane_status なので変換して保存
         DB::table('daily_plans')
             ->where('id', $id)
             ->update([
@@ -262,11 +263,59 @@ class PlanningController extends Controller
                 'updated_at' => now()
             ]);
 
-        // JSONを返す
         return response()->json([
             'message' => 'Status updated successfully',
             'id' => $id,
             'new_status' => $validated['status']
         ]);
+    }
+
+    /**
+     * 8. API: 今日のタスクボード用データ取得
+     * URL: /api/planning/daily
+     */
+    public function getDailyTasks(Request $request)
+    {
+        $date = $request->input('date', now()->format('Y-m-d'));
+        $userId = $request->input('user_id', 1);
+
+        // モデルを使ってリレーション(rawBacklogIssue)も含めて取得
+        $plans = DailyPlan::with('rawBacklogIssue')
+            ->where('target_date', $date)
+            ->where('user_id', $userId)
+            ->get();
+
+        // ステータスごとにグループ化
+        $grouped = $plans->groupBy('lane_status');
+
+        return response()->json([
+            'date' => $date,
+            'lanes' => [
+                'planned'     => $grouped->get('planned', []),
+                'in_progress' => $grouped->get('in_progress', []),
+                'completed'   => $grouped->get('completed', []),
+                'skipped'     => $grouped->get('skipped', []),
+            ]
+        ]);
+    }
+
+    /**
+     * 9. API: 未消化の課題リスト取得
+     * URL: /api/planning/unscheduled
+     */
+    public function getUnscheduled(Request $request)
+    {
+        $date = $request->input('date', now()->format('Y-m-d'));
+        $userId = $request->input('user_id', 1);
+
+        // すでに「今日の計画」に入っている課題IDのリストを作る
+        $plannedIssueIds = DailyPlan::where('target_date', $date)
+            ->where('user_id', $userId)
+            ->pluck('raw_issue_id');
+
+        // 今日の計画に入っていない課題を取得
+        $unscheduledIssues = RawBacklogIssue::whereNotIn('id', $plannedIssueIds)->get();
+
+        return response()->json($unscheduledIssues);
     }
 }

@@ -29,3 +29,7 @@ use App\Http\Controllers\PlanningController;
 
 // AI計画生成
 Route::post('/planning/generate', [PlanningController::class, 'generate']);
+
+
+Route::get('/planning/daily', [PlanningController::class, 'getDailyTasks']);       // 今日のタスク（カンバン用）
+Route::get('/planning/unscheduled', [PlanningController::class, 'getUnscheduled']); // 未消化の課題（サイドバー用）

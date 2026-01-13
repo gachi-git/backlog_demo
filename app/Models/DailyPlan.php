@@ -11,6 +11,7 @@ class DailyPlan extends Model
         'raw_issue_id',
         'user_id',
         'target_date',
+        'end_date',      
         'lane_status',
         'result_status',
         'planned_minutes',
@@ -20,6 +21,7 @@ class DailyPlan extends Model
 
     protected $casts = [
         'target_date' => 'date',
+        'end_date' => 'date',   
         'planned_minutes' => 'integer',
         'actual_minutes' => 'integer',
     ];
