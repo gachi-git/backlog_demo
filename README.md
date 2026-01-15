@@ -98,9 +98,9 @@ Backlogから課題を取得してDBに保存：
 ./vendor/bin/sail artisan backlog:sync --since=2025-12-01
 ```
 
-### ダミーデータ投入
+### ダミーデータ投入（開発・テスト用）
 
-テスト用のダミー課題をBacklogに作成：
+開発環境でのテスト用にダミー課題をBacklogに作成：
 
 ```bash
 # 10件作成（デフォルト）
