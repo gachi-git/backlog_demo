@@ -132,4 +132,97 @@ class AnalysisController extends Controller
             'daily_stats' => $dailyStats,
         ];
     }
+
+    /**
+     * 統計サマリーを取得
+     * GET /api/analysis/summary
+     */
+    public function getSummary(Request $request): JsonResponse
+    {
+        $targetDate = $request->input('date', Carbon::today()->format('Y-m-d'));
+        $summary = $this->calculateSummary($targetDate);
+
+        return response()->json([
+            'total_tasks' => $summary['total_tasks'],
+            'completion_rate' => $summary['completion_rate'],
+            'in_progress' => $summary['in_progress_tasks'],
+            'failure_rate' => $summary['failure_rate'],
+            'period' => $targetDate,
+        ]);
+    }
+
+    /**
+     * 週次進捗データを取得
+     * GET /api/analysis/weekly-progress
+     */
+    public function getWeeklyProgress(Request $request): JsonResponse
+    {
+        $targetDate = $request->input('date', Carbon::today()->format('Y-m-d'));
+        $summary = $this->calculateSummary($targetDate);
+
+        return response()->json($summary['daily_stats']);
+    }
+
+    /**
+     * カテゴリ別完了率を取得
+     * GET /api/analysis/categories
+     */
+    public function getCategories(Request $request): JsonResponse
+    {
+        $targetDate = $request->input('date', Carbon::today()->format('Y-m-d'));
+        $endDate = Carbon::parse($targetDate);
+        $startDate = $endDate->copy()->subDays(6);
+
+        // daily_plansとraw_backlog_issuesを結合してカテゴリ別に集計
+        $plans = DailyPlan::with('rawBacklogIssue')
+            ->whereBetween('target_date', [$startDate, $endDate])
+            ->get();
+
+        $categories = [];
+
+        foreach ($plans as $plan) {
+            if (!$plan->rawBacklogIssue || !isset($plan->rawBacklogIssue->data['category'])) {
+                continue;
+            }
+
+            $categoryData = $plan->rawBacklogIssue->data['category'];
+
+            // カテゴリが配列の場合（複数カテゴリ）は最初のものを使用
+            if (is_array($categoryData)) {
+                $categoryName = $categoryData[0]['name'] ?? 'その他';
+            } else {
+                $categoryName = $categoryData['name'] ?? 'その他';
+            }
+
+            if (!isset($categories[$categoryName])) {
+                $categories[$categoryName] = [
+                    'name' => $categoryName,
+                    'total' => 0,
+                    'completed' => 0,
+                ];
+            }
+
+            $categories[$categoryName]['total']++;
+
+            if ($plan->result_status === 'completed') {
+                $categories[$categoryName]['completed']++;
+            }
+        }
+
+        // 完了率を計算
+        $result = array_map(function ($category) {
+            $completionRate = $category['total'] > 0
+                ? round(($category['completed'] / $category['total']) * 100)
+                : 0;
+
+            return [
+                'name' => $category['name'],
+                'total' => $category['total'],
+                'completed' => $category['completed'],
+                'completion_rate' => $completionRate,
+            ];
+        }, $categories);
+
+        return response()->json(array_values($result));
+    }
 }
