@@ -1,188 +1,19 @@
 <?php
 
-namespace App\Http\Controllers\Api;
+namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
-
-// モデル
+// ▼▼▼ 追加: モデルを使用できるようにインポート ▼▼▼
 use App\Models\DailyPlan;
 use App\Models\RawBacklogIssue;
 
-// サービス
-use App\Services\GeminiService;
-
 class PlanningController extends Controller
 {
-
-    public function __construct(
-        private GeminiService $geminiService
-    ) {
-    }
-
-
-    /**
-     * AI計画生成
-     * POST /api/planning/generate
-     */
-    public function generate(Request $request): JsonResponse
-    {
-        $userId = null; // 認証未実装のため null（単一ユーザー想定）
-        $today = Carbon::today();
-
-        // 1. 既存の実行していない計画をクリア（今日以降の予定）
-        DailyPlan::whereNull('user_id')
-            ->where('target_date', '>=', $today)
-            ->where('result_status', 'pending')
-            ->delete();
-
-        // 2. 課題データを取得（リクエストパラメータ優先）
-        if ($request->has('issues') && is_array($request->input('issues'))) {
-            // フロントから送信された課題データを使用
-            $issuesData = collect($request->input('issues'))
-                ->sortBy(function ($issue) {
-                    // 優先度でソート（高→中→低）
-                    $priorityOrder = ['高' => 1, '中' => 2, '低' => 3];
-                    $priority = $priorityOrder[$issue['priority'] ?? '中'] ?? 2;
-
-                    // 期限日でソート（近い方が優先）
-                    $dueDate = $issue['dueDate'] ?? '9999-12-31';
-
-                    return [$priority, $dueDate];
-                })
-                ->take(3) // 上位3件
-                ->values();
-        } else {
-            // DBから未完了の課題を取得（後方互換性のため）
-            $issuesData = RawBacklogIssue::incomplete()
-                ->get()
-                ->sortBy(function ($issue) {
-                    // 優先度でソート（高→中→低）
-                    $priorityOrder = ['高' => 1, '中' => 2, '低' => 3];
-                    $priorityName = $issue->data['priority']['name'] ?? '中';
-                    $priority = $priorityOrder[$priorityName] ?? 2;
-
-                    // 期限日でソート（近い方が優先）
-                    $dueDate = $issue->data['dueDate'] ?? '9999-12-31';
-
-                    return [$priority, $dueDate];
-                })
-                ->take(3)
-                ->values();
-        }
-
-        // 3. 計画を自動生成
-        $createdPlans = [];
-        $totalIssues = $issuesData->count();
-
-        foreach ($issuesData as $index => $issueData) {
-            // issue_keyでraw_backlog_issuesと紐付け
-            $rawIssueId = null;
-            $issueKey = null;
-            $title = null;
-            $priority = null;
-            $estimatedHours = 2;
-
-            if ($issueData instanceof RawBacklogIssue) {
-                // DBから取得した場合
-                $rawIssueId = $issueData->id;
-                $issueKey = $issueData->issue_key;
-                $title = $issueData->data['summary'] ?? '';
-                $priority = $issueData->data['priority']['name'] ?? '中';
-                $estimatedHours = $issueData->data['estimatedHours'] ?? 2;
-            } else {
-                // リクエストパラメータから取得した場合
-                $issueKey = $issueData['issue_key'] ?? null;
-                $title = $issueData['title'] ?? '';
-                $priority = $issueData['priority'] ?? '中';
-                $estimatedHours = $issueData['estimatedHours'] ?? 2;
-
-                // issue_keyでraw_backlog_issuesを検索
-                if ($issueKey) {
-                    $rawIssue = RawBacklogIssue::where('issue_key', $issueKey)->first();
-                    $rawIssueId = $rawIssue ? $rawIssue->id : null;
-                }
-            }
-
-            $plannedMinutes = $estimatedHours * 60;
-
-            $plan = DailyPlan::create([
-                'raw_issue_id' => $rawIssueId,
-                'user_id' => $userId,
-                'target_date' => $today,
-                'lane_status' => 'planned',
-                'result_status' => 'pending',
-                'planned_minutes' => $plannedMinutes,
-                'ai_comment' => $this->generateAiCommentFromData($issueData),
-            ]);
-
-            $createdPlans[] = [
-                'id' => $plan->id,
-                'issue_key' => $issueKey,
-                'title' => $title,
-                'planned_minutes' => $plannedMinutes,
-                'priority' => $priority,
-                'ai_comment' => $plan->ai_comment,
-            ];
-
-            // レート制限を回避するため、最後以外は5秒待機
-            if ($index < $totalIssues - 1) {
-                sleep(5);
-            }
-        }
-
-        // 4. 生成結果を返す
-        return response()->json([
-            'success' => true,
-            'message' => count($createdPlans) . '件の計画を生成しました',
-            'plans' => $createdPlans,
-            'target_date' => $today->format('Y-m-d'),
-        ]);
-    }
-
-    /**
-     * AIコメントを生成（RawBacklogIssueまたは配列から）
-     */
-    private function generateAiCommentFromData($issueData): string
-    {
-        if ($issueData instanceof RawBacklogIssue) {
-            // DBから取得したRawBacklogIssueの場合
-            $taskData = [
-                'title' => $issueData->data['summary'] ?? '',
-                'description' => $issueData->data['description'] ?? '',
-                'priority' => $issueData->data['priority']['name'] ?? '中',
-                'dueDate' => $issueData->data['dueDate'] ?? null,
-                'estimatedHours' => $issueData->data['estimatedHours'] ?? null,
-            ];
-        } else {
-            // リクエストパラメータから取得した配列の場合
-            $taskData = [
-                'title' => $issueData['title'] ?? '',
-                'description' => $issueData['description'] ?? '',
-                'priority' => $issueData['priority'] ?? '中',
-                'dueDate' => $issueData['dueDate'] ?? null,
-                'estimatedHours' => $issueData['estimatedHours'] ?? null,
-            ];
-        }
-
-        return $this->geminiService->generateTaskComment($taskData);
-    }
-
-    /**
-     * AIコメントを生成 (下のプログラムの仕様)
-     * @deprecated 後方互換性のため残してあるが、generateAiCommentFromDataを使用すること
-     */
-    private function generateAiComment(RawBacklogIssue $issue): string
-    {
-        return $this->generateAiCommentFromData($issue);
-    }
-
     // ==========================================
-    //  画面表示用（上のプログラムから移植）
+    //  画面表示用（HTMLを返す）
     // ==========================================
 
     /**
@@ -355,8 +186,42 @@ class PlanningController extends Controller
         return view('planning.gantt', compact('ganttTasks', 'year', 'month'));
     }
 
+    /**
+     * 2. AI計画生成処理 (フォーム送信後のリダイレクト)
+     * URL: /planning/generate
+     */
+    public function generate(Request $request)
+    {
+        $userId = Auth::id() ?? 1;
+        $issues = DB::table('raw_backlog_issues')->get();
+
+        if ($issues->isEmpty()) {
+            return redirect()->back()->with('warning', '課題がありません');
+        }
+
+        DB::table('daily_plans')
+            ->where('user_id', $userId)
+            ->where('lane_status', 'planned')
+            ->delete();
+
+        foreach ($issues as $issue) {
+            DB::table('daily_plans')->insert([
+                'user_id' => $userId,
+                'raw_issue_id' => $issue->id,
+                'target_date' => now(),
+                'end_date' => now(), 
+                'lane_status' => 'planned',
+                'planned_minutes' => 60,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        return redirect()->route('planning.index')->with('success', 'AI計画を生成しました！');
+    }
+
     // ==========================================
-    //  API用 (上のプログラムから移植)
+    //  API用（JSONを返す / Alpine.jsから呼ばれる）
     // ==========================================
 
     /**

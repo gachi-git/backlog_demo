@@ -28,14 +28,22 @@ Backlog APIを使用したデータ同期システム + AI計画生成の技術�
 - 差分更新対応（`updatedSince`パラメータ）
 - MySQLへの保存（JSON形式）
 
-### 3. AI計画生成 🆕
+### 3. AI計画生成 
 
 - **Gemini AI連携**: タスク情報を分析し、具体的なアドバイスを自動生成
 - **日次計画API**: 未完了タスクから優先度・期限を考慮して計画を自動生成
 - **エンドポイント**: `POST /api/planning/generate`
 - **レート制限対応**: API呼び出し間に5秒の待機時間
 
-### 4. ダミーデータ生成
+### 4. AI分析アドバイス 
+
+- **作業パターン分析**: 過去7日間のタスクデータを分析
+- **構造化アドバイス**: 必ず3個のアドバイスを生成（推奨/緊急/参考タグ）
+- **エンドポイント**: `POST /api/analysis/advice`
+- **キャッシュ機能**: 同じ日付のリクエストはキャッシュから高速応答
+- **フォールバック機能**: Gemini APIエラー時も適切なアドバイスを提供
+
+### 5. ダミーデータ生成
 
 - Fakerを使用したダミーデータ生成
 - Backlog APIでの課題作成
@@ -128,10 +136,61 @@ curl -X POST http://localhost/api/planning/generate
       "issue_key": "PROJ-123",
       "title": "N+1問題解決とEager Loading",
       "planned_minutes": 1260,
-      "priority": "高"
+      "priority": "高",
+      "ai_comment": "まずは既存のクエリを確認し..."
     }
   ],
   "target_date": "2025-12-29"
+}
+```
+
+### AI分析アドバイス
+
+過去7日間のタスクを分析してアドバイスを生成：
+
+```bash
+# APIエンドポイント
+POST /api/analysis/advice
+
+# curlでのテスト（基本）
+curl -X POST http://localhost/api/analysis/advice \
+  -H "Content-Type: application/json" \
+  -d '{}'
+
+# キャッシュを無視して再生成
+curl -X POST http://localhost/api/analysis/advice \
+  -H "Content-Type: application/json" \
+  -d '{"refresh": true}'
+```
+
+**レスポンス例:**
+```json
+{
+  "success": true,
+  "cached": false,
+  "data": {
+    "target_date": "2026-01-11",
+    "advice": [
+      {
+        "title": "タスク記録の徹底をお願いします",
+        "description": "日別データが全て0件のため...",
+        "tag": "緊急",
+        "type": "warning"
+      },
+      {
+        "title": "完了率向上と失敗原因の分析",
+        "description": "完了率55%、失敗率18%は...",
+        "tag": "推奨",
+        "type": "recommend"
+      },
+      {
+        "title": "タスクの細分化と進捗管理",
+        "description": "実行中タスクや失敗タスクが多いことから...",
+        "tag": "推奨",
+        "type": "recommend"
+      }
+    ]
+  }
 }
 ```
 
@@ -170,7 +229,7 @@ Backlog課題の生データを保存
 | synced_at | timestamp | 同期日時 |
 | updated_at_backlog | timestamp | Backlog最終更新日時 |
 
-### daily_plans テーブル 🆕
+### daily_plans テーブル 
 
 日次タスク計画を管理
 
@@ -184,6 +243,16 @@ Backlog課題の生データを保存
 | planned_minutes | integer | 予定時間（分） |
 | actual_minutes | integer | 実績時間（分） |
 | ai_comment | text | AIからのアドバイスコメント |
+
+### ai_analyses テーブル 
+
+AI分析結果とアドバイスを保存（キャッシュ）
+
+| カラム | 型 | 説明 |
+|--------|-----|------|
+| target_date | date | 分析対象日 |
+| summary_json | json | 集計データ（完了率、件数など） |
+| advice_text | json | AIアドバイス（3個の構造化データ） |
 
 ## 実装クラス
 
@@ -208,17 +277,21 @@ Gemini APIとの通信を担当
 
 **主要メソッド:**
 - `generateTaskComment(array $taskData)` - タスク情報からAIコメントを生成
-- `buildPrompt(array $taskData)` - プロンプト構築
+- `generateAnalysisAdvice(array $summary)` - 統計データから3個のアドバイスを生成
+- `buildPrompt(array $taskData)` - タスクコメント用プロンプト構築
+- `buildAnalysisPrompt(array $summary)` - 分析アドバイス用プロンプト構築
 
 ### Controllers
 
 - `PlanningController` - AI計画生成API
+- `AnalysisController` - AI分析アドバイスAPI
 
 ### Models
 
 - `SyncLog` - 同期ログ管理
 - `RawBacklogIssue` - Backlog課題データ
 - `DailyPlan` - 日次計画データ
+- `AiAnalysis` - AI分析結果のキャッシュ
 
 ## 技術検証結果
 
@@ -234,14 +307,10 @@ Gemini APIとの通信を担当
 - **AI計画生成機能**
 - **Gemini APIによるタスクアドバイス生成**
 - **優先度・期限を考慮した自動計画作成**
-
-### 📝 未検証項目
-
-- 2回目以降の差分同期の実動作
-- 大量データ（100件以上）の取得
-- コメント・添付ファイルの取得
-- Webhook連携
-- フロント側との連携テスト
+- **AI分析アドバイス機能**
+- **過去7日間のタスク統計分析**
+- **構造化されたアドバイス生成（必ず3個）**
+- **キャッシュ機能とフォールバック機能**
 
 ## トラブルシューティング
 
@@ -263,12 +332,6 @@ APIキーが間違っている、または送信方法が間違っています�
 # 正しい形式
 BACKLOG_SPACE_URL=https://your-space.backlog.jp
 ```
-
-## セキュリティ
-
-- ✅ `.env`は`.gitignore`に含まれています
-- ✅ APIキーはハードコードされていません
-- ✅ 環境変数経由で管理
 
 ## 参考資料
 
