@@ -391,17 +391,28 @@ class PlanningController extends Controller
             'status' => 'required|string|in:planned,in_progress,completed,skipped'
         ]);
 
+        $laneStatus = $validated['status'];
+
+        // lane_statusに応じてresult_statusも自動設定
+        $resultStatus = match($laneStatus) {
+            'completed' => 'completed',  // 完了 → 成功
+            'skipped' => 'failed',       // スキップ → 失敗
+            'planned', 'in_progress' => 'pending',  // 進行中 → まだ未確定
+        };
+
         DB::table('daily_plans')
             ->where('id', $id)
             ->update([
-                'lane_status' => $validated['status'],
+                'lane_status' => $laneStatus,
+                'result_status' => $resultStatus,
                 'updated_at' => now()
             ]);
 
         return response()->json([
             'message' => 'Status updated successfully',
             'id' => $id,
-            'new_status' => $validated['status']
+            'new_lane_status' => $laneStatus,
+            'new_result_status' => $resultStatus,
         ]);
     }
 
