@@ -181,9 +181,6 @@ class PlanningController extends Controller
         return $this->generateAiCommentFromData($issue);
     }
 
-    // ==========================================
-    //  画面表示用（上のプログラムから移植）
-    // ==========================================
 
     /**
      * 1. 計画ダッシュボード (カンバン & KPI)
@@ -354,10 +351,6 @@ class PlanningController extends Controller
 
         return view('planning.gantt', compact('ganttTasks', 'year', 'month'));
     }
-
-    // ==========================================
-    //  API用 (上のプログラムから移植)
-    // ==========================================
 
     /**
      * 6. API: ガントチャート日付更新
