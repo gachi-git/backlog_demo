@@ -38,3 +38,12 @@ Route::get('/planning/unscheduled', [PlanningController::class, 'getUnscheduled'
 
 // 6. AI分析
 Route::post('/analysis/advice', [AnalysisController::class, 'generateAdvice']);
+
+// 7. 統計サマリー
+Route::get('/analysis/summary', [AnalysisController::class, 'getSummary']);
+
+// 8. 週次進捗
+Route::get('/analysis/weekly-progress', [AnalysisController::class, 'getWeeklyProgress']);
+
+// 9. カテゴリ別完了率
+Route::get('/analysis/categories', [AnalysisController::class, 'getCategories']);
