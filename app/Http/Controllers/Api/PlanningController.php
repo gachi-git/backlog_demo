@@ -98,7 +98,7 @@ class PlanningController extends Controller
     }
 
     /**
-     * AIコメントを生成 (下のプログラムの仕様)
+     * AIコメントを生成 
      */
     private function generateAiComment(RawBacklogIssue $issue): string
     {
@@ -113,9 +113,6 @@ class PlanningController extends Controller
         return $this->geminiService->generateTaskComment($taskData);
     }
 
-    // ==========================================
-    //  画面表示用（上のプログラムから移植）
-    // ==========================================
 
     /**
      * 1. 計画ダッシュボード (カンバン & KPI)
@@ -286,10 +283,6 @@ class PlanningController extends Controller
 
         return view('planning.gantt', compact('ganttTasks', 'year', 'month'));
     }
-
-    // ==========================================
-    //  API用 (上のプログラムから移植)
-    // ==========================================
 
     /**
      * 6. API: ガントチャート日付更新

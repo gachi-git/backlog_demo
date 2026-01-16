@@ -22,8 +22,8 @@ use App\Http\Controllers\Api\PlanningController;
     Route::patch('/planning/tasks/{id}/status', [PlanningController::class, 'updateStatus']);
 
     // 2. ガント操作（日付更新）
-    // URL: /api/tasks/{id}/update-dates
-    Route::post('/tasks/{id}/update-dates', [PlanningController::class, 'updateDates']);
+    // URL: /api/planning/tasks/{id}/dates
+    Route::patch('/planning/tasks/{id}/dates', [PlanningController::class, 'updateDates']);
 
 //});
 
